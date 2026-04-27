@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>摩斯密碼發報機</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+TC:wght@400;700&display=swap');
+
+  :root {
+    --green: #00ff88;
+    --dark-green: #00cc66;
+    --bg: #050f0a;
+    --panel: #0a1f14;
+    --border: #0d3320;
+    --text: #c8ffe0;
+    --dim: #3a6b50;
+    --dot-color: #00ff88;
+    --dash-color: #00cc44;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,255,136,0.015) 2px,
+      rgba(0,255,136,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    z-index: 1;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+
+  .title {
+    font-size: 22px;
+    letter-spacing: 6px;
+    color: var(--green);
+    text-transform: uppercase;
+    text-shadow: 0 0 20px rgba(0,255,136,0.6);
+    margin-bottom: 4px;
+  }
+
+  .subtitle {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 3px;
+  }
+
+  /* Connection Panel */
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .panel-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #333;
+    display: inline-block;
+    margin-right: 8px;
+    transition: all 0.3s;
+  }
+
+  .status-dot.connected {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  .status-dot.connecting {
+    background: #ffaa00;
+    box-shadow: 0 0 8px #ffaa00;
+    animation: pulse 0.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .status-text {
+    font-size: 13px;
+    color: var(--text);
+  }
+
+  .btn-connect {
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 8px 16px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.2s;
+  }
+
+  .btn-connect:hover, .btn-connect:active {
+    background: rgba(0,255,136,0.1);
+    box-shadow: 0 0 10px rgba(0,255,136,0.3);
+  }
+
+  .btn-connect:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  /* Input display */
+  .morse-display {
+    background: #020a05;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .morse-sequence {
+    font-size: 28px;
+    letter-spacing: 6px;
+    color: var(--green);
+    text-shadow: 0 0 10px rgba(0,255,136,0.4);
+    min-height: 36px;
+    word-break: break-all;
+  }
+
+  .morse-hint {
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: 1px;
+  }
+
+  /* Buttons */
+  .input-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .btn-morse {
+    padding: 32px 0;
+    font-size: 36px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    transition: all 0.1s;
+    position: relative;
+    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+  }
+
+  .btn-dot {
+    background: rgba(0,255,136,0.08);
+    border: 1px solid rgba(0,255,136,0.3);
+    color: var(--green);
+  }
+
+  .btn-dash {
+    background: rgba(0,204,68,0.08);
+    border: 1px solid rgba(0,204,68,0.3);
+    color: var(--dark-green);
+  }
+
+  .btn-morse:active {
+    transform: scale(0.96);
+  }
+
+  .btn-dot:active {
+    background: rgba(0,255,136,0.2);
+    box-shadow: 0 0 20px rgba(0,255,136,0.4);
+  }
+
+  .btn-dash:active {
+    background: rgba(0,204,68,0.2);
+    box-shadow: 0 0 20px rgba(0,204,68,0.4);
+  }
+
+  .btn-label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--dim);
+    margin-top: 6px;
+  }
+
+  .action-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .btn-send {
+    padding: 16px;
+    background: rgba(0,255,136,0.12);
+    border: 1px solid var(--green);
+    color: var(--green);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-send:active {
+    background: rgba(0,255,136,0.25);
+    box-shadow: 0 0 15px rgba(0,255,136,0.4);
+  }
+
+  .btn-clear {
+    padding: 16px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-clear:active {
+    border-color: #ff4444;
+    color: #ff4444;
+  }
+
+  /* Message log */
+  .log-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  .log-title {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    margin-bottom: 10px;
+  }
+
+  .log-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 120px;
+    overflow-y: auto;
+  }
+
+  .log-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .log-morse { color: var(--dim); font-size: 11px; }
+  .log-letter { color: var(--green); font-size: 18px; text-shadow: 0 0 8px rgba(0,255,136,0.4); }
+  .log-time { color: #2a4a35; font-size: 10px; }
+
+  /* Reference table */
+  .ref-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+  }
+
+  .ref-title {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--dim);
+    margin-bottom: 12px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ref-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    display: none;
+  }
+
+  .ref-grid.open { display: grid; }
+
+  .ref-item {
+    text-align: center;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+
+  .ref-char { font-size: 16px; color: var(--green); }
+  .ref-code { font-size: 10px; color: var(--dim); letter-spacing: 1px; }
+
+  /* Notification */
+  .notification {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-80px);
+    background: rgba(0,255,136,0.15);
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 10px 20px;
+    border-radius: 4px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    transition: transform 0.3s ease;
+    z-index: 100;
+    white-space: nowrap;
+  }
+
+  .notification.show {
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<div class="notification" id="notification">已送出</div>
+
+<div class="container">
+  <header>
+    <div class="title">MORSE TX</div>
+    <div class="subtitle">摩斯密碼發報機</div>
+  </header>
+
+  <!-- Connection -->
+  <div class="panel">
+    <div class="panel-label">裝置連線</div>
+    <div class="status-row">
+      <div style="display:flex;align-items:center">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-text" id="statusText">未連線</span>
+      </div>
+      <button class="btn-connect" id="btnConnect" onclick="toggleConnect()">連線</button>
+    </div>
+  </div>
+
+  <!-- Morse input display -->
+  <div class="morse-display">
+    <div class="morse-sequence" id="morseSeq">_</div>
+    <div class="morse-hint" id="morseHint">輸入點或劃來組成摩斯密碼</div>
+  </div>
+
+  <!-- Dot / Dash buttons -->
+  <div class="input-buttons">
+    <button class="btn-morse btn-dot" onclick="addSymbol('.')">
+      ·
+      <span class="btn-label">點 (DOT)</span>
+    </button>
+    <button class="btn-morse btn-dash" onclick="addSymbol('-')">
+      −
+      <span class="btn-label">劃 (DASH)</span>
+    </button>
+  </div>
+
+  <!-- Send / Clear -->
+  <div class="action-buttons">
+    <button class="btn-send" onclick="sendMorse()">▶ 送出</button>
+    <button class="btn-clear" onclick="clearInput()">✕ 清除</button>
+  </div>
+
+  <!-- Message log -->
+  <div class="log-panel">
+    <div class="panel-label">傳送紀錄</div>
+    <div class="log-list" id="logList">
+      <div style="color:var(--dim);font-size:11px;text-align:center;padding:10px 0">尚無紀錄</div>
+    </div>
+  </div>
+
+  <!-- Reference table -->
+  <div class="ref-panel">
+    <div class="ref-title" onclick="toggleRef()">
+      <span>摩斯密碼對照表</span>
+      <span id="refArrow">▼</span>
+    </div>
+    <div class="ref-grid" id="refGrid"></div>
+  </div>
+
+</div>
+
+<script>
+// ── Morse code table ──────────────────────────────────────────
+const MORSE = {
+  'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....','I':'..','J':'.---',
+  'K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.','Q':'--.-','R':'.-.','S':'...','T':'-',
+  'U':'..-','V':'...-','W':'.--','X':'-..-','Y':'-.--','Z':'--..',
+  '1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.','0':'-----'
+};
+
+const MORSE_REVERSE = Object.fromEntries(Object.entries(MORSE).map(([k,v])=>[v,k]));
+
+// ── State ─────────────────────────────────────────────────────
+let currentSequence = '';
+let bleDevice = null;
+let bleCharacteristic = null;
+let isConnected = false;
+let logItems = [];
+
+// ── BLE ───────────────────────────────────────────────────────
+// micro:bit UART service UUIDs
+const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const UART_TX_CHAR = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // write to this
+
+async function toggleConnect() {
+  if (isConnected) {
+    disconnect();
+  } else {
+    await connect();
+  }
+}
+
+async function connect() {
+  try {
+    setStatus('connecting');
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'BBC micro:bit' }],
+      optionalServices: [UART_SERVICE]
+    });
+    bleDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+    const server = await bleDevice.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+    bleCharacteristic = await service.getCharacteristic(UART_TX_CHAR);
+
+    isConnected = true;
+    setStatus('connected');
+    showNotification('✓ 已連線');
+  } catch (err) {
+    console.error(err);
+    setStatus('disconnected');
+    if (err.name !== 'NotFoundError') {
+      showNotification('連線失敗');
+    }
+  }
+}
+
+function disconnect() {
+  if (bleDevice && bleDevice.gatt.connected) {
+    bleDevice.gatt.disconnect();
+  }
+  onDisconnected();
+}
+
+function onDisconnected() {
+  isConnected = false;
+  bleCharacteristic = null;
+  setStatus('disconnected');
+}
+
+function setStatus(state) {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  const btn = document.getElementById('btnConnect');
+  dot.className = 'status-dot';
+  if (state === 'connected') {
+    dot.classList.add('connected');
+    text.textContent = bleDevice?.name || '已連線';
+    btn.textContent = '中斷';
+  } else if (state === 'connecting') {
+    dot.classList.add('connecting');
+    text.textContent = '連線中...';
+    btn.disabled = true;
+  } else {
+    text.textContent = '未連線';
+    btn.textContent = '連線';
+    btn.disabled = false;
+  }
+}
+
+// ── Input ─────────────────────────────────────────────────────
+function addSymbol(sym) {
+  if (currentSequence.length >= 7) return; // max morse length
+  currentSequence += sym;
+  updateDisplay();
+}
+
+function updateDisplay() {
+  const seq = document.getElementById('morseSeq');
+  const hint = document.getElementById('morseHint');
+
+  if (currentSequence === '') {
+    seq.textContent = '_';
+    hint.textContent = '輸入點或劃來組成摩斯密碼';
+    return;
+  }
+
+  // display dots and dashes nicely
+  seq.textContent = currentSequence.replace(/\./g, '·').replace(/-/g, '−');
+
+  // show decoded letter if match found
+  const decoded = MORSE_REVERSE[currentSequence];
+  if (decoded) {
+    hint.textContent = `→ 字母：${decoded}`;
+    hint.style.color = 'var(--green)';
+  } else {
+    hint.textContent = '繼續輸入...';
+    hint.style.color = 'var(--dim)';
+  }
+}
+
+function clearInput() {
+  currentSequence = '';
+  updateDisplay();
+}
+
+async function sendMorse() {
+  if (currentSequence === '') return;
+
+  const decoded = MORSE_REVERSE[currentSequence] || '?';
+
+  // Send via BLE if connected
+  if (isConnected && bleCharacteristic) {
+    try {
+      const encoder = new TextEncoder();
+      await bleCharacteristic.writeValue(encoder.encode(currentSequence + '\n'));
+    } catch (err) {
+      console.error('Send error:', err);
+      showNotification('傳送失敗');
+    }
+  }
+
+  // Add to log
+  addLog(currentSequence, decoded);
+  showNotification(isConnected ? `▶ 已送出：${decoded}` : `⚠ 未連線（${decoded}）`);
+  clearInput();
+}
+
+function addLog(morse, letter) {
+  const now = new Date();
+  const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  logItems.unshift({ morse, letter, time });
+  if (logItems.length > 20) logItems.pop();
+
+  const list = document.getElementById('logList');
+  list.innerHTML = logItems.map(item => `
+    <div class="log-item">
+      <span class="log-morse">${item.morse.replace(/\./g,'·').replace(/-/g,'−')}</span>
+      <span class="log-letter">${item.letter}</span>
+      <span class="log-time">${item.time}</span>
+    </div>
+  `).join('');
+}
+
+// ── Reference table ───────────────────────────────────────────
+function buildRefTable() {
+  const grid = document.getElementById('refGrid');
+  grid.innerHTML = Object.entries(MORSE).map(([char, code]) => `
+    <div class="ref-item" onclick="pasteCode('${code}')">
+      <div class="ref-char">${char}</div>
+      <div class="ref-code">${code.replace(/\./g,'·').replace(/-/g,'−')}</div>
+    </div>
+  `).join('');
+}
+
+function pasteCode(code) {
+  currentSequence = code;
+  updateDisplay();
+}
+
+let refOpen = false;
+function toggleRef() {
+  refOpen = !refOpen;
+  document.getElementById('refGrid').className = 'ref-grid' + (refOpen ? ' open' : '');
+  document.getElementById('refArrow').textContent = refOpen ? '▲' : '▼';
+}
+
+// ── Notification ──────────────────────────────────────────────
+function showNotification(msg) {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ── Init ──────────────────────────────────────────────────────
+buildRefTable();
+
+if (!navigator.bluetooth) {
+  document.getElementById('btnConnect').disabled = true;
+  document.getElementById('statusText').textContent = '此瀏覽器不支援藍牙';
+}
+</script>
+</body>
+</html>

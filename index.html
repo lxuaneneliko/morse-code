@@ -584,7 +584,7 @@ async function sendMorse() {
   if (isConnected && bleCharacteristic) {
     try {
       const encoder = new TextEncoder();
-      await bleCharacteristic.writeValue(encoder.encode(currentSequence + '\n'));
+      await bleCharacteristic.writeValueWithResponse(encoder.encode(currentSequence + '\n'));
     } catch (err) {
       console.error('Send error:', err);
       showNotification('傳送失敗');

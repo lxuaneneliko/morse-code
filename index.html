@@ -2,62 +2,304 @@
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>摩斯密碼發報機 V2</title>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700&display=swap');
+
   :root {
-    --green: #00ff88; --dark-green: #00cc66; --bg: #050f0a; --panel: #0a1f14; --border: #0d3320; --text: #c8ffe0; --dim: #3a6b50;
+    --green: #00ff88;
+    --dark-green: #00cc66;
+    --glow: rgba(0,255,136,0.3);
+    --bg: #050f0a;
+    --panel: #0a1f14;
+    --border: #0d3320;
+    --text: #c8ffe0;
+    --dim: #3a6b50;
+    --red: #ff4466;
   }
-  body { background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Share Tech Mono', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(0,255,136,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(0,204,102,0.03) 0%, transparent 60%);
+  }
+
   .container { width: 100%; max-width: 420px; }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 15px; margin-bottom: 15px; }
-  .btn { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 10px; cursor: pointer; width: 100%; margin-top: 10px; }
-  .display { background: #000; border: 1px solid var(--border); padding: 20px; text-align: center; font-size: 24px; color: var(--green); min-height: 40px; margin-bottom: 15px; }
+
+  h2 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 22px;
+    letter-spacing: 6px;
+    color: var(--green);
+    text-align: center;
+    margin-bottom: 24px;
+    text-shadow: 0 0 20px var(--glow);
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 14px;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--dim);
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .status-dot.connected {
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 2s infinite;
+  }
+  .status-dot.error { background: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  #statusText { font-size: 12px; color: var(--dim); }
+
+  .btn {
+    background: transparent;
+    border: 1px solid var(--green);
+    color: var(--green);
+    padding: 12px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    border-radius: 2px;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  }
+  .btn:hover:not(:disabled) {
+    background: rgba(0,255,136,0.08);
+    box-shadow: 0 0 12px var(--glow);
+  }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .btn.dim { border-color: #2a4a38; color: #2a4a38; }
+  .btn.dim:hover:not(:disabled) { background: rgba(255,255,255,0.03); box-shadow: none; }
+  .btn.send { background: rgba(0,255,136,0.08); font-size: 15px; }
+  .btn.danger { border-color: var(--red); color: var(--red); }
+  .btn.danger:hover:not(:disabled) { background: rgba(255,68,102,0.08); box-shadow: 0 0 12px rgba(255,68,102,0.3); }
+
+  .display {
+    background: #000;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px;
+    text-align: center;
+    font-size: 28px;
+    color: var(--green);
+    min-height: 72px;
+    margin-bottom: 14px;
+    letter-spacing: 8px;
+    text-shadow: 0 0 12px var(--glow);
+    word-break: break-all;
+    line-height: 1.4;
+    transition: color 0.2s;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .display.empty { color: var(--dim); }
+  .display.flash { animation: flash 0.2s; }
+  @keyframes flash {
+    0%,100% { background: #000; }
+    50% { background: rgba(0,255,136,0.1); }
+  }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .hint {
+    font-size: 11px;
+    color: var(--dim);
+    text-align: center;
+    margin-top: 14px;
+    letter-spacing: 1px;
+    line-height: 1.8;
+  }
+
+  .no-bt-warn {
+    background: rgba(255,68,102,0.08);
+    border: 1px solid rgba(255,68,102,0.3);
+    color: var(--red);
+    font-size: 12px;
+    padding: 12px;
+    border-radius: 2px;
+    margin-bottom: 14px;
+    display: none;
+    line-height: 1.6;
+  }
 </style>
 </head>
 <body>
 <div class="container">
   <h2>MORSE TX V2</h2>
+
+  <div class="no-bt-warn" id="noBtWarn">
+    ⚠ 此瀏覽器不支援 Web Bluetooth API<br>
+    請使用 Chrome 或 Edge 開啟此頁面
+  </div>
+
   <div class="panel">
     <button class="btn" id="btnConnect" onclick="connect()">連接 micro:bit</button>
-    <p id="status" style="font-size:12px; color:gray;">狀態: 未連線</p>
+    <div class="status-row">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">狀態：未連線</span>
+    </div>
   </div>
-  <div class="display" id="morseDisplay">_</div>
-  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-    <button class="btn" onclick="add('.')">點 (DOT)</button>
-    <button class="btn" onclick="add('-')">劃 (DASH)</button>
+
+  <div class="display empty" id="morseDisplay">_ _ _</div>
+
+  <div class="grid2">
+    <button class="btn" id="btnDot" onclick="addSymbol('.')" disabled>· 點 (DOT)</button>
+    <button class="btn" id="btnDash" onclick="addSymbol('-')" disabled>— 劃 (DASH)</button>
   </div>
-  <button class="btn" style="background:rgba(0,255,136,0.1)" onclick="send()">▶ 發送訊息</button>
-  <button class="btn" style="border-color: #555; color: #555;" onclick="clearMsg()">清除</button>
+
+  <button class="btn send" id="btnSend" onclick="send()" disabled style="margin-top:10px;">▶ 發送訊號</button>
+  <button class="btn dim" id="btnClear" onclick="clearMsg()" disabled style="margin-top:10px;">✕ 清除</button>
+  <button class="btn danger" id="btnDisconnect" onclick="disconnect()" disabled style="margin-top:10px;">⏏ 中斷連線</button>
+
+  <p class="hint">
+    點選 DOT / DASH 輸入摩斯密碼<br>
+    按「發送」傳給 micro:bit 解碼
+  </p>
 </div>
 
 <script>
-let sequence = "";
-let characteristic = null;
-const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
-const UART_TX_CHAR = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+  const UART_SERVICE  = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+  const UART_RX_CHAR  = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'; // 手機→micro:bit
 
-async function connect() {
-  try {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: 'BBC micro:bit' }],
-      optionalServices: [UART_SERVICE]
+  let sequence = '';
+  let rxCharacteristic = null;
+  let gattDevice = null;
+  let isConnecting = false;
+
+  // ── 瀏覽器支援檢查 ──────────────────────────────
+  if (!navigator.bluetooth) {
+    document.getElementById('noBtWarn').style.display = 'block';
+    document.getElementById('btnConnect').disabled = true;
+  }
+
+  // ── 狀態 UI 輔助 ─────────────────────────────────
+  function setStatus(msg, state = 'idle') {
+    document.getElementById('statusText').textContent = '狀態：' + msg;
+    const dot = document.getElementById('statusDot');
+    dot.className = 'status-dot';
+    if (state === 'connected') dot.classList.add('connected');
+    if (state === 'error')     dot.classList.add('error');
+  }
+
+  function setConnected(connected) {
+    document.getElementById('btnConnect').disabled = connected || isConnecting;
+    document.getElementById('btnDisconnect').disabled = !connected;
+    ['btnDot','btnDash','btnSend','btnClear'].forEach(id => {
+      document.getElementById(id).disabled = !connected;
     });
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(UART_SERVICE);
-    characteristic = await service.getCharacteristic(UART_TX_CHAR);
-    document.getElementById('status').innerText = "狀態: 已連線";
-  } catch (e) { console.error(e); }
-}
+  }
 
-function add(s) { sequence += s; document.getElementById('morseDisplay').innerText = sequence; }
-function clearMsg() { sequence = ""; document.getElementById('morseDisplay').innerText = "_"; }
+  // ── 連線 ────────────────────────────────────────
+  async function connect() {
+    if (rxCharacteristic || isConnecting) return;
+    isConnecting = true;
+    document.getElementById('btnConnect').disabled = true;
+    setStatus('搜尋裝置中…');
 
-async function send() {
-  if (!characteristic || !sequence) return;
-  const encoder = new TextEncoder();
-  await characteristic.writeValue(encoder.encode(sequence + '\n'));
-  clearMsg();
-}
+    try {
+      gattDevice = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: 'BBC micro:bit' }],
+        optionalServices: [UART_SERVICE]
+      });
+
+      gattDevice.addEventListener('gattserverdisconnected', onDisconnected);
+
+      setStatus('連線中…');
+      const server  = await gattDevice.gatt.connect();
+      const service = await server.getPrimaryService(UART_SERVICE);
+      rxCharacteristic = await service.getCharacteristic(UART_RX_CHAR);
+
+      isConnecting = false;
+      setStatus('已連線 — ' + gattDevice.name, 'connected');
+      setConnected(true);
+    } catch (e) {
+      isConnecting = false;
+      if (e.name === 'NotFoundError') {
+        setStatus('未找到裝置', 'error');
+      } else {
+        setStatus('連線失敗：' + e.message, 'error');
+      }
+      setConnected(false);
+      document.getElementById('btnConnect').disabled = false;
+    }
+  }
+
+  // ── 斷線處理 ────────────────────────────────────
+  function onDisconnected() {
+    rxCharacteristic = null;
+    isConnecting = false;
+    setStatus('已斷線', 'error');
+    setConnected(false);
+  }
+
+  async function disconnect() {
+    if (gattDevice && gattDevice.gatt.connected) {
+      await gattDevice.gatt.disconnect(); // 會觸發 onDisconnected
+    }
+  }
+
+  // ── 輸入操作 ────────────────────────────────────
+  function addSymbol(s) {
+    sequence += s;
+    const el = document.getElementById('morseDisplay');
+    el.textContent = sequence;
+    el.classList.remove('empty', 'flash');
+    void el.offsetWidth; // reflow for re-trigger
+    el.classList.add('flash');
+  }
+
+  function clearMsg() {
+    sequence = '';
+    const el = document.getElementById('morseDisplay');
+    el.textContent = '_ _ _';
+    el.classList.add('empty');
+  }
+
+  // ── 發送 ────────────────────────────────────────
+  async function send() {
+    if (!rxCharacteristic || !sequence) return;
+    try {
+      const encoder = new TextEncoder();
+      await rxCharacteristic.writeValue(encoder.encode(sequence + '\n'));
+      clearMsg();
+    } catch (e) {
+      setStatus('發送失敗：' + e.message, 'error');
+    }
+  }
 </script>
 </body>
 </html>

@@ -294,19 +294,12 @@
     if (!rxCharacteristic || !sequence) return;
     try {
         const encoder = new TextEncoder();
-        // 每個字元單獨送
-        for (let i = 0; i < sequence.length; i++) {
-            await rxCharacteristic.writeValueWithoutResponse(encoder.encode(sequence[i]));
-            await new Promise(r => setTimeout(r, 100)); // 每字元間隔 100ms
-        }
-        // 最後送換行符
-        await new Promise(r => setTimeout(r, 100));
-        await rxCharacteristic.writeValueWithoutResponse(encoder.encode('\n'));
+        await rxCharacteristic.writeValueWithoutResponse(encoder.encode(sequence + '\n'));
         clearMsg();
     } catch (e) {
         setStatus('發送失敗：' + e.message, 'error');
     }
-}
+  }
 </script>
 </body>
 </html>

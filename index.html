@@ -290,22 +290,42 @@
   }
 
   // ── 發送 ────────────────────────────────────────
-  async function send() {
+ async function send() {
     if (!rxCharacteristic || !sequence) return;
     try {
         const encoder = new TextEncoder();
-        // 強制確保只有 ASCII 的點和劃
         const clean = sequence
-            .replace(/[—–―]/g, '-')  // 把各種 dash 換成標準減號
-            .replace(/[·•]/g, '.')   // 把各種點換成標準點
+            .replace(/[—–―]/g, '-')
+            .replace(/[·•]/g, '.');
         
-        // 試試改回這個
-        await rxCharacteristic.writeValue(encoder.encode(clean + '\n'));
+        await rxCharacteristic.writeValueWithoutResponse(encoder.encode(clean + '\n'));
+        
+        // 根據長度計算等待時間
+        // 每個符號：點=200ms 劃=400ms 間隔=200ms 顯示字母=800ms
+        let waitTime = 800;
+        for (let i = 0; i < clean.length; i++) {
+            if (clean[i] === '.') waitTime += 200;
+            if (clean[i] === '-') waitTime += 400;
+            waitTime += 200; // 符號間隔
+        }
+        
+        // 發送後禁用按鈕，等待播放完畢
+        document.getElementById('btnDot').disabled = true;
+        document.getElementById('btnDash').disabled = true;
+        document.getElementById('btnSend').disabled = true;
+        
+        await new Promise(r => setTimeout(r, waitTime));
+        
+        // 恢復按鈕
+        document.getElementById('btnDot').disabled = false;
+        document.getElementById('btnDash').disabled = false;
+        document.getElementById('btnSend').disabled = false;
+        
         clearMsg();
     } catch (e) {
         setStatus('發送失敗：' + e.message, 'error');
     }
-  }
+}
 </script>
 </body>
 </html>

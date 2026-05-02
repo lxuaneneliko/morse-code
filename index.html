@@ -299,7 +299,8 @@
             .replace(/[—–―]/g, '-')  // 把各種 dash 換成標準減號
             .replace(/[·•]/g, '.')   // 把各種點換成標準點
         
-        await rxCharacteristic.writeValueWithoutResponse(encoder.encode(clean + '\n'));
+        // 試試改回這個
+        await rxCharacteristic.writeValue(encoder.encode(clean + '\n'));
         clearMsg();
     } catch (e) {
         setStatus('發送失敗：' + e.message, 'error');

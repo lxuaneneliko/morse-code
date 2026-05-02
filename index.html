@@ -574,22 +574,22 @@ function clearInput() {
   currentSequence = '';
   updateDisplay();
 }
+async function send() {
+  if (!bleCharacteristic || !currentSequence) return;
 
-async function sendMorse() {
-  if (currentSequence === '') return;
-
-  const decoded = MORSE_REVERSE[currentSequence] || '?';
-
-  // Send via BLE if connected
-  if (isConnected && bleCharacteristic) {
-    try {
-      const encoder = new TextEncoder();
-      await bleCharacteristic.writeValueWithResponse(encoder.encode(currentSequence + '\n'));
-    } catch (err) {
-      console.error('Send error:', err);
-      showNotification('傳送失敗');
-    }
+  try {
+    const encoder = new TextEncoder();
+    // 使用 writeValueWithResponse 確保數據確實抵達硬體
+    // 並強制加上 \n 作為結尾符號
+    await bleCharacteristic.writeValueWithResponse(encoder.encode(currentSequence + '\n'));
+    
+    console.log("傳送成功: " + currentSequence);
+    clearInput(); 
+  } catch (err) {
+    console.error("傳送失敗:", err);
+    alert("傳送失敗，請重新連線");
   }
+}
 
   // Add to log
   addLog(currentSequence, decoded);

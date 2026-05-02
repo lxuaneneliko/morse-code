@@ -1,188 +1,63 @@
+
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>摩斯密碼發報機 V2</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+TC:wght@400;700&display=swap');
   :root {
     --green: #00ff88; --dark-green: #00cc66; --bg: #050f0a; --panel: #0a1f14; --border: #0d3320; --text: #c8ffe0; --dim: #3a6b50;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    background: var(--bg); color: var(--text); font-family: 'Share Tech Mono', monospace;
-    min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 16px;
-  }
-  .container { width: 100%; max-width: 420px; position: relative; z-index: 1; }
-  header { text-align: center; margin-bottom: 24px; }
-  .title { font-size: 22px; letter-spacing: 6px; color: var(--green); text-transform: uppercase; text-shadow: 0 0 20px rgba(0,255,136,0.6); }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 16px; margin-bottom: 16px; }
-  .status-row { display: flex; align-items: center; justify-content: space-between; }
-  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #333; margin-right: 8px; transition: all 0.3s; }
-  .status-dot.connected { background: var(--green); box-shadow: 0 0 8px var(--green); }
-  .btn-connect { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 8px 16px; cursor: pointer; font-family: inherit; }
-  .morse-display { background: #000; border: 1px solid var(--border); padding: 20px; text-align: center; margin-bottom: 16px; min-height: 80px; }
-  .morse-sequence { font-size: 32px; color: var(--green); margin-bottom: 5px; }
-  .morse-hint { font-size: 12px; color: var(--dim); }
-  .input-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
-  .btn-morse { padding: 30px 0; font-size: 30px; background: rgba(0,255,136,0.1); border: 1px solid var(--border); color: var(--green); cursor: pointer; border-radius: 4px; }
-  .action-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-  .btn-send { padding: 15px; background: rgba(0,255,136,0.2); border: 1px solid var(--green); color: var(--green); cursor: pointer; }
-  .btn-clear { padding: 15px; background: transparent; border: 1px solid var(--border); color: var(--dim); cursor: pointer; }
-  .log-panel { background: var(--panel); border: 1px solid var(--border); padding: 15px; border-radius: 4px; }
-  .log-list { max-height: 100px; overflow-y: auto; font-size: 14px; }
-  .notification { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: var(--panel); border: 1px solid var(--green); color: var(--green); padding: 10px 20px; transition: 0.3s; z-index: 100; }
-  .notification.show { transform: translateX(-50%) translateY(0); }
+  body { background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  .container { width: 100%; max-width: 420px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 15px; margin-bottom: 15px; }
+  .btn { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 10px; cursor: pointer; width: 100%; margin-top: 10px; }
+  .display { background: #000; border: 1px solid var(--border); padding: 20px; text-align: center; font-size: 24px; color: var(--green); min-height: 40px; margin-bottom: 15px; }
 </style>
 </head>
 <body>
-
-<div class="notification" id="notification"></div>
-
 <div class="container">
-  <header>
-    <div class="title">MORSE TX</div>
-    <div class="subtitle" style="font-size:10px; color:var(--dim); text-align:center;">V2.0 STABLE</div>
-  </header>
-
+  <h2>MORSE TX V2</h2>
   <div class="panel">
-    <div class="status-row">
-      <div style="display:flex;align-items:center">
-        <div class="status-dot" id="statusDot"></div>
-        <span class="status-text" id="statusText">未連線</span>
-      </div>
-      <button class="btn-connect" id="btnConnect" onclick="toggleConnect()">連線</button>
-    </div>
+    <button class="btn" id="btnConnect" onclick="connect()">連接 micro:bit</button>
+    <p id="status" style="font-size:12px; color:gray;">狀態: 未連線</p>
   </div>
-
-  <div class="morse-display">
-    <div class="morse-sequence" id="morseSeq">_</div>
-    <div class="morse-hint" id="morseHint">等待輸入...</div>
+  <div class="display" id="morseDisplay">_</div>
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+    <button class="btn" onclick="add('.')">點 (DOT)</button>
+    <button class="btn" onclick="add('-')">劃 (DASH)</button>
   </div>
-
-  <div class="input-buttons">
-    <button class="btn-morse" onclick="addSymbol('.')">·</button>
-    <button class="btn-morse" onclick="addSymbol('-')">−</button>
-  </div>
-
-  <div class="action-buttons">
-    <button class="btn-send" onclick="sendMorse()">▶ 送出訊息</button>
-    <button class="btn-clear" onclick="clearInput()">✕ 清除</button>
-  </div>
-
-  <div class="log-panel">
-    <div style="font-size:10px; color:var(--dim); margin-bottom:10px;">傳送紀錄</div>
-    <div class="log-list" id="logList"></div>
-  </div>
+  <button class="btn" style="background:rgba(0,255,136,0.1)" onclick="send()">▶ 發送訊息</button>
+  <button class="btn" style="border-color: #555; color: #555;" onclick="clearMsg()">清除</button>
 </div>
 
 <script>
-const MORSE = { 'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....','I':'..','J':'.---','K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.','Q':'--.-','R':'.-.','S':'...','T':'-','U':'..-','V':'...-','W':'.--','X':'-..-','Y':'-.--','Z':'--..','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....','6':'-....','7':'--...','8':'---..','9':'----.','0':'-----' };
-const MORSE_REVERSE = Object.fromEntries(Object.entries(MORSE).map(([k,v])=>[v,k]));
-
-let currentSequence = '';
-let bleDevice = null;
-let bleCharacteristic = null;
-let isConnected = false;
-
+let sequence = "";
+let characteristic = null;
 const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const UART_TX_CHAR = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 
-async function toggleConnect() {
-  if (isConnected) {
-    if (bleDevice) bleDevice.gatt.disconnect();
-  } else {
-    try {
-      setStatus('connecting');
-      bleDevice = await navigator.bluetooth.requestDevice({
-        filters: [{ namePrefix: 'BBC micro:bit' }],
-        optionalServices: [UART_SERVICE]
-      });
-      bleDevice.addEventListener('gattserverdisconnected', () => {
-        isConnected = false; setStatus('disconnected');
-      });
-      const server = await bleDevice.gatt.connect();
-      const service = await server.getPrimaryService(UART_SERVICE);
-      bleCharacteristic = await service.getCharacteristic(UART_TX_CHAR);
-      isConnected = true;
-      setStatus('connected');
-      showNotification('✓ 連線成功');
-    } catch (err) {
-      console.error(err);
-      setStatus('disconnected');
-    }
-  }
+async function connect() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: 'BBC micro:bit' }],
+      optionalServices: [UART_SERVICE]
+    });
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(UART_SERVICE);
+    characteristic = await service.getCharacteristic(UART_TX_CHAR);
+    document.getElementById('status').innerText = "狀態: 已連線";
+  } catch (e) { console.error(e); }
 }
 
-function setStatus(state) {
-  const dot = document.getElementById('statusDot');
-  const text = document.getElementById('statusText');
-  const btn = document.getElementById('btnConnect');
-  if (state === 'connected') {
-    dot.className = 'status-dot connected';
-    text.textContent = '已連線';
-    btn.textContent = '中斷';
-    btn.disabled = false;
-  } else if (state === 'connecting') {
-    text.textContent = '搜尋中...';
-    btn.disabled = true;
-  } else {
-    dot.className = 'status-dot';
-    text.textContent = '未連線';
-    btn.textContent = '連線';
-    btn.disabled = false;
-  }
-}
+function add(s) { sequence += s; document.getElementById('morseDisplay').innerText = sequence; }
+function clearMsg() { sequence = ""; document.getElementById('morseDisplay').innerText = "_"; }
 
-function addSymbol(sym) {
-  if (currentSequence.length >= 7) return;
-  currentSequence += sym;
-  const decoded = MORSE_REVERSE[currentSequence] || '?';
-  document.getElementById('morseSeq').textContent = currentSequence.replace(/\./g, '·').replace(/-/g, '−');
-  document.getElementById('morseHint').textContent = decoded !== '?' ? `對應字母: ${decoded}` : '繼續輸入...';
-}
-
-function clearInput() {
-  currentSequence = '';
-  document.getElementById('morseSeq').textContent = '_';
-  document.getElementById('morseHint').textContent = '等待輸入...';
-}
-
-async function sendMorse() {
-  if (!currentSequence) return;
-  const decoded = MORSE_REVERSE[currentSequence] || '未知';
-
-  if (isConnected && bleCharacteristic) {
-    try {
-      const encoder = new TextEncoder();
-      // 關鍵修正：使用 writeValueWithResponse 並確保 \n 被送出
-      await bleCharacteristic.writeValueWithResponse(encoder.encode(currentSequence + '\n'));
-      addLog(currentSequence, decoded);
-      showNotification(`▶ 已送出：${decoded}`);
-      clearInput();
-    } catch (err) {
-      console.error(err);
-      showNotification('傳送失敗');
-    }
-  } else {
-    showNotification('⚠ 請先連線藍牙');
-  }
-}
-
-function addLog(morse, letter) {
-  const list = document.getElementById('logList');
-  const item = document.createElement('div');
-  item.style.cssText = "display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #111";
-  item.innerHTML = `<span>${morse}</span><span style="color:var(--green)">${letter}</span>`;
-  list.prepend(item);
-}
-
-function showNotification(msg) {
-  const el = document.getElementById('notification');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2000);
+async function send() {
+  if (!characteristic || !sequence) return;
+  const encoder = new TextEncoder();
+  await characteristic.writeValue(encoder.encode(sequence + '\n'));
+  clearMsg();
 }
 </script>
 </body>

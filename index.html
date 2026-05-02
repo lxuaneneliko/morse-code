@@ -1,39 +1,64 @@
-
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>摩斯密碼發報機 V2</title>
 <style>
   :root {
-    --green: #00ff88; --dark-green: #00cc66; --bg: #050f0a; --panel: #0a1f14; --border: #0d3320; --text: #c8ffe0; --dim: #3a6b50;
+    --green: #00ff88; --bg: #050f0a; --panel: #0a1f14; --border: #0d3320; --text: #c8ffe0;
   }
-  body { background: var(--bg); color: var(--text); font-family: sans-serif; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+  body { 
+    background: var(--bg); color: var(--text); font-family: sans-serif; 
+    display: flex; flex-direction: column; align-items: center; padding: 20px; 
+    touch-action: manipulation; /* 防止雙擊縮放導致按鈕卡頓 */
+  }
   .container { width: 100%; max-width: 420px; }
-  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 15px; margin-bottom: 15px; }
-  .btn { background: transparent; border: 1px solid var(--green); color: var(--green); padding: 10px; cursor: pointer; width: 100%; margin-top: 10px; }
-  .display { background: #000; border: 1px solid var(--border); padding: 20px; text-align: center; font-size: 24px; color: var(--green); min-height: 40px; margin-bottom: 15px; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 15px; margin-bottom: 15px; text-align: center; }
+  
+  /* 讓按鈕更大更好按 */
+  .btn { 
+    background: transparent; border: 1px solid var(--green); color: var(--green); 
+    padding: 20px; cursor: pointer; width: 100%; margin-top: 10px; 
+    font-size: 18px; border-radius: 8px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active { background: rgba(0, 255, 136, 0.2); }
+  
+  .display { 
+    background: #000; border: 1px solid var(--border); padding: 30px; 
+    text-align: center; font-size: 32px; color: var(--green); 
+    min-height: 40px; margin-bottom: 15px; word-break: break-all;
+  }
+  .status-text { font-size: 14px; color: #888; margin-top: 8px; }
 </style>
 </head>
 <body>
+
 <div class="container">
-  <h2>MORSE TX V2</h2>
+  <h2 style="text-align:center; color:var(--green);">MORSE TX V2</h2>
+  
   <div class="panel">
-    <button class="btn" id="btnConnect" onclick="connect()">連接 micro:bit</button>
-    <p id="status" style="font-size:12px; color:gray;">狀態: 未連線</p>
+    <button class="btn" id="btnConnect" onclick="connect()">1. 連接 micro:bit</button>
+    <p id="status" class="status-text">狀態: 未連線</p>
   </div>
+
   <div class="display" id="morseDisplay">_</div>
+
   <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
     <button class="btn" onclick="add('.')">點 (DOT)</button>
     <button class="btn" onclick="add('-')">劃 (DASH)</button>
   </div>
-  <button class="btn" style="background:rgba(0,255,136,0.1)" onclick="send()">▶ 發送訊息</button>
-  <button class="btn" style="border-color: #555; color: #555;" onclick="clearMsg()">清除</button>
+
+  <button class="btn" style="background:rgba(0,255,136,0.1); border-width: 2px;" onclick="send()">▶ 2. 發送訊息</button>
+  <button class="btn" style="border-color: #555; color: #555; padding: 10px;" onclick="clearMsg()">清除輸入</button>
 </div>
 
 <script>
 let sequence = "";
 let characteristic = null;
+let isConnected = false;
+
 const UART_SERVICE = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const UART_TX_CHAR = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 
@@ -43,22 +68,61 @@ async function connect() {
       filters: [{ namePrefix: 'BBC micro:bit' }],
       optionalServices: [UART_SERVICE]
     });
+    
+    document.getElementById('status').innerText = "狀態: 正在連線...";
+    
     const server = await device.gatt.connect();
     const service = await server.getPrimaryService(UART_SERVICE);
     characteristic = await service.getCharacteristic(UART_TX_CHAR);
-    document.getElementById('status').innerText = "狀態: 已連線";
-  } catch (e) { console.error(e); }
+    
+    isConnected = true;
+    document.getElementById('status').innerText = "狀態: 已連線 ✔";
+    document.getElementById('status').style.color = "#00ff88";
+    document.getElementById('btnConnect').innerText = "已成功連線";
+    document.getElementById('btnConnect').style.borderColor = "#333";
+    document.getElementById('btnConnect').disabled = true;
+    
+  } catch (e) { 
+    console.error(e); 
+    document.getElementById('status').innerText = "狀態: 連線失敗或取消";
+    document.getElementById('status').style.color = "red";
+  }
 }
 
-function add(s) { sequence += s; document.getElementById('morseDisplay').innerText = sequence; }
-function clearMsg() { sequence = ""; document.getElementById('morseDisplay').innerText = "_"; }
+function add(s) { 
+  if (sequence === "") {
+    document.getElementById('morseDisplay').innerText = "";
+  }
+  sequence += s; 
+  document.getElementById('morseDisplay').innerText = sequence; 
+}
+
+function clearMsg() { 
+  sequence = ""; 
+  document.getElementById('morseDisplay').innerText = "_"; 
+}
 
 async function send() {
-  if (!characteristic || !sequence) return;
-  const encoder = new TextEncoder();
-  await characteristic.writeValue(encoder.encode(sequence + '\n'));
-  clearMsg();
+  if (!characteristic) {
+    alert("請先連接 micro:bit！");
+    return;
+  }
+  if (!sequence) return;
+
+  try {
+    const encoder = new TextEncoder();
+    // 這裡使用 writeValueWithResponse 確保 micro:bit 確實收到
+    // 且一定要加上 \n
+    await characteristic.writeValueWithResponse(encoder.encode(sequence + '\n'));
+    
+    console.log("已傳送: " + sequence);
+    clearMsg();
+  } catch (e) { 
+    console.error("傳送錯誤:", e);
+    alert("傳送失敗，請確認連線。");
+  }
 }
 </script>
+
 </body>
 </html>

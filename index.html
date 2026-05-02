@@ -293,11 +293,15 @@
   async function send() {
     if (!rxCharacteristic || !sequence) return;
     try {
-      const encoder = new TextEncoder();
-      await rxCharacteristic.writeValue(encoder.encode(sequence + '\n'));
-      clearMsg();
+        const encoder = new TextEncoder();
+        // ❌ 舊的
+        // await rxCharacteristic.writeValue(encoder.encode(sequence + '\n'));
+        
+        // ✅ 改成這個
+        await rxCharacteristic.writeValueWithoutResponse(encoder.encode(sequence + '\n'));
+        clearMsg();
     } catch (e) {
-      setStatus('發送失敗：' + e.message, 'error');
+        setStatus('發送失敗：' + e.message, 'error');
     }
   }
 </script>

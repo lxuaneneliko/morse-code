@@ -294,11 +294,14 @@
     if (!rxCharacteristic || !sequence) return;
     try {
         const encoder = new TextEncoder();
-        // ❌ 舊的
-        // await rxCharacteristic.writeValue(encoder.encode(sequence + '\n'));
-        
-        // ✅ 改成這個
-        await rxCharacteristic.writeValueWithResponse(encoder.encode(sequence + '\n'));
+        // 整串一次送，但加上明確的結束符
+        const data = sequence + '\n';
+        // 分批每次最多送 4 bytes
+        for (let i = 0; i < data.length; i += 4) {
+            const chunk = data.slice(i, i + 4);
+            await rxCharacteristic.writeValueWithoutResponse(encoder.encode(chunk));
+            await new Promise(r => setTimeout(r, 50)); // 每批間隔 50ms
+        }
         clearMsg();
     } catch (e) {
         setStatus('發送失敗：' + e.message, 'error');
